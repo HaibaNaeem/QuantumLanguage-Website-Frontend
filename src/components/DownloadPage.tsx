@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Globe, Terminal, Cpu, Download, Info } from 'lucide-react';
+import { Globe, Terminal, Cpu, Download, Info, ShieldAlert } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export const DownloadPage = () => (
@@ -60,7 +60,22 @@ export const DownloadPage = () => (
         ))}
       </div>
 
-      <motion.div 
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.35 }}
+        className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 max-w-4xl mx-auto mb-12 flex items-start gap-4"
+      >
+        <ShieldAlert className="text-amber-500 dark:text-amber-400 w-6 h-6 flex-shrink-0 mt-0.5" />
+        <div className="text-sm text-black/70 dark:text-white/70">
+          <span className="font-bold text-black dark:text-white">Windows may show a "Windows protected your PC" warning.</span>{' '}
+          This is Microsoft Defender SmartScreen flagging a new, unsigned app — it does <span className="font-semibold">not</span> mean the installer is unsafe.
+          To continue, click <span className="font-mono font-bold text-amber-600 dark:text-amber-400">More info</span> &rarr;{' '}
+          <span className="font-mono font-bold text-amber-600 dark:text-amber-400">Run anyway</span>.
+        </div>
+      </motion.div>
+
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4 }}
