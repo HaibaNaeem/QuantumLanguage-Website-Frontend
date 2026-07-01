@@ -154,51 +154,65 @@ srv.start();`
     setTimeout(() => setIsSaving(false), 1000);
   };
 
-  const runCode = () => {
+  const runCode = async () => {
     setIsExecuting(true);
-    setOutput(['Compiling...', 'Linking standard libraries...', 'Executing VM...']);
-    const code = files[activeFile] || '';
-    setTimeout(() => {
-      const openBraces = (code.match(/{/g) || []).length;
-      const closeBraces = (code.match(/}/g) || []).length;
-      if (openBraces !== closeBraces) {
-        setOutput(prev => [...prev, 'Error: Unmatched braces detected.', '', 'Build failed.']);
-        setIsExecuting(false);
-        return;
-      }
-      const printMatches = code.matchAll(/print\s*\((.*?)\);?/g);
-      const prints = Array.from(printMatches).map(match => {
-        let val = match[1].trim();
-        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) return val.slice(1, -1);
-        if (val.includes('checkSimilarity')) return "Similarity: 75%";
-        if (val.includes('target')) return "Initializing secure connection to: https://api.secure-node.io";
-        if (val.includes('sessionKey')) return "Session Key: 4f2a7b9c1d8e3f5a6b0c9d8e7f6a5b4c";
-        if (val.includes('port')) return "Quantum Server listening on port 8080";
-        if (/^[\d\s\+\-\*\/\(\)]+$/.test(val)) {
-          try { return eval(val).toString(); } catch (e) {}
-        }
-        return val;
+    setOutput(['Connecting to remote engine...', 'Executing code...']);
+    
+    const codeContent = files[activeFile] || '';
+    
+    // Extract the dynamic extension from the current active file (e.g., ".js", ".cpp", ".sa")
+    const dynamicExt = activeFile.substring(activeFile.lastIndexOf('.'));
+
+    try {
+      const response = await fetch('https://quantum-language-website-backend.vercel.app/api/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          code: codeContent,
+          ext: dynamicExt // Dynamically passes .js, .cpp, or .sa to your backend API
+        })
       });
-      if (prints.length > 0) {
-        setOutput(prev => [...prev, ...prints, '', 'Program exited with code 0']);
+
+      const data = await response.json();
+
+      if (data.success) {
+        // If your backend returns the stdout output
+        setOutput([data.output]);
       } else {
-        if (activeFile === 'main.sa') setOutput(prev => [...prev, 'Initializing secure connection to: https://api.secure-node.io', 'Payload encrypted with AES-256', 'Session Key: 4f2a7b9c1d8e3f5a6b0c9d8e7f6a5b4c', 'Server Response: 200 OK', '', 'Program exited with code 0']);
-        else if (activeFile === 'utils.sa') setOutput(prev => [...prev, 'Similarity: 75%', '', 'Program exited with code 0']);
-        else if (activeFile === 'server.sa') setOutput(prev => [...prev, 'Quantum Server listening on port 8080', '', 'Program exited with code 0']);
-        else setOutput(prev => [...prev, 'Execution successful.', '', 'Program exited with code 0']);
+        // If your backend or the compiler threw an error
+        setOutput(['Execution Failed:', data.error || data.compilerError || 'Unknown runtime error']);
       }
+    } catch (error) {
+      setOutput([
+        'Network Error: Failed to establish connection with execution backend API.',
+        'Make sure your local server.js is running on port 5000.'
+      ]);
+      console.error("Execution failed:", error);
+    } finally {
       setIsExecuting(false);
-    }, 1500);
+    }
   };
 
   const createFile = () => {
     if (!newFileName) return;
-    const name = newFileName.endsWith('.sa') ? newFileName : `${newFileName}.sa`;
+    
+    // Check if it already has a valid allowed extension
+    const hasValidExt = newFileName.endsWith('.sa') || newFileName.endsWith('.js') || newFileName.endsWith('.cpp');
+    // If it doesn't have an extension, default to .sa
+    const name = hasValidExt ? newFileName : `${newFileName}.sa`;
+    
     if (files[name]) { alert('File already exists'); return; }
-    setFiles(prev => ({ ...prev, [name]: '// New Quantum Script\n' }));
+    
+    // Put a clean default template inside depending on what type of file they make
+    let defaultContent = '// New Quantum Script\n';
+    if (name.endsWith('.js')) defaultContent = '// New JavaScript File\nconsole.log("Hello from JS!");\n';
+    if (name.endsWith('.cpp')) defaultContent = '#include <iostream>\n\nint main() {\n    std::cout << "Hello from C++!" << std::endl;\n    return 0;\n}\n';
+    
+    setFiles(prev => ({ ...prev, [name]: defaultContent }));
     setActiveFile(name);
     setNewFileName('');
-    setIsCreateModalOpen(false);
   };
 
   const deleteFile = (fileName: string) => {
