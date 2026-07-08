@@ -253,6 +253,7 @@ srv.start();`
     const hasValidExt =
     newFileName.endsWith('.sa') ||
     newFileName.endsWith('.js') ||
+    newFileName.endsWith('.py') ||
     newFileName.endsWith('.cpp') ||
     newFileName.endsWith('.c');
     // If it doesn't have an extension, default to .sa
@@ -263,6 +264,7 @@ srv.start();`
     // Put a clean default template inside depending on what type of file they make
     let defaultContent = '// New Quantum Script\n';
     if (name.endsWith('.js')) defaultContent = '// New JavaScript File\nconsole.log("Hello from JS!");\n';
+    if (name.endsWith('.py')) defaultContent = '# New Python File\nprint("Hello from Python!")\n';
     if (name.endsWith('.cpp')) defaultContent = '#include <iostream>\n\nint main() {\n    std::cout << "Hello from C++!" << std::endl;\n    return 0;\n}\n';
     
     setFiles(prev => ({ ...prev, [name]: defaultContent }));
