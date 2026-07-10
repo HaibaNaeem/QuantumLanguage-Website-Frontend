@@ -17,13 +17,23 @@ export const Footer = () => (
               A modern, multi-syntax scripting language built for performance and flexibility. 
               Developed by <span className="text-cyan-500 font-bold">SENODROOM</span>.
             </p>
-            <div className="flex gap-4">
-            {[GithubIcon, Globe, Terminal].map((Icon, i) => (
-              <a key={i} href="#" className="p-2 bg-black/5 dark:bg-white/5 rounded-lg hover:bg-cyan-500/10 hover:text-cyan-500 transition-all">
-                <Icon className="w-5 h-5" />
-              </a>
-            ))}
-          </div>
+           <div className="flex gap-4">
+  {[
+    { Icon: GithubIcon, path: "https://github.com/QuantumLogicsLabs/QuantumLanguage.git", isExternal: true },
+    { Icon: Globe, path: "https://discord.gg/HvgzP4pBJ", isExternal: true },
+    { Icon: Terminal, path: "#ide", isExternal: false }
+  ].map(({ Icon, path, isExternal }, i) => (
+    <a 
+      key={i} 
+      href={path} 
+      target={isExternal ? "_blank" : undefined} 
+      rel={isExternal ? "noopener noreferrer" : undefined} 
+      className="p-2 bg-black/5 dark:bg-white/5 rounded-lg hover:bg-cyan-500/10 hover:text-cyan-500 transition-all"
+    >
+      <Icon className="w-5 h-5" />
+    </a>
+  ))}
+</div>
         </div>
         
         <div>
