@@ -22,17 +22,45 @@ import { SyntaxVersatility } from './components/SyntaxVersatility';
 import { StandardLibrary } from './components/StandardLibrary';
 import { Vision } from './components/Vision';
 import { Blog } from './components/Blog';
+import { BlogListPage } from './components/BlogListPage';
+import { BlogPostPage } from './components/BlogPostPage';
 import { Ecosystem } from './components/Ecosystem';
 import { Installation } from './components/Installation';
 import { Newsletter } from './components/Newsletter';
 
 export default function App() {
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname, hash } = location;
   const navigate = useNavigate();
 
+  // Scroll to top on pathname change (but not hash-only changes)
   React.useEffect(() => {
-    window.scrollTo(0, 0);
+    if (!hash) {
+      window.scrollTo(0, 0);
+    }
   }, [pathname]);
+
+  // Handle hash-based scroll after route transition completes
+  React.useEffect(() => {
+    if (!hash) return;
+    const targetId = hash.replace('#', '');
+    let attempts = 0;
+    // Poll for up to 800ms to outlast the 300ms page transition animation
+    const interval = setInterval(() => {
+      const element = document.getElementById(targetId);
+      if (element) {
+        clearInterval(interval);
+        const navbarHeight = 64; // h-16
+        const top = element.getBoundingClientRect().top + window.scrollY - navbarHeight;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+      attempts++;
+      if (attempts > 16) { // 16 × 50ms = 800ms
+        clearInterval(interval);
+      }
+    }, 50);
+    return () => clearInterval(interval);
+  }, [location]);
 
   return (
     <ErrorBoundary>
@@ -41,7 +69,7 @@ export default function App() {
         <Navbar />
         <main>
           <AnimatePresence mode="wait">
-            <Routes location={pathname} key={pathname}>
+            <Routes location={location} key={pathname}>
               <Route path="/" element={
                 <motion.div
                   initial={{ opacity: 0 }}
@@ -68,6 +96,26 @@ export default function App() {
                   <CodeShowcase />
                   <Installation />
                   <Newsletter />
+                </motion.div>
+              } />
+              <Route path="/blog" element={
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <BlogListPage />
+                </motion.div>
+              } />
+              <Route path="/blog/:slug" element={
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <BlogPostPage />
                 </motion.div>
               } />
               <Route path="/download" element={

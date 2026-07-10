@@ -17,18 +17,20 @@ export const Navbar = () => {
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, target: string) => {
-    if (pathname !== '/') {
-      e.preventDefault();
-      navigate('/');
-      setTimeout(() => {
-        const el = document.getElementById(target);
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    } else {
-      const el = document.getElementById(target);
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }
+    e.preventDefault();
     setIsMenuOpen(false);
+    if (pathname === '/') {
+      // Already on homepage — just smooth-scroll with navbar offset
+      const el = document.getElementById(target);
+      if (el) {
+        const navbarHeight = 64;
+        const top = el.getBoundingClientRect().top + window.scrollY - navbarHeight;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+    } else {
+      // On a sub-page — navigate to homepage with hash; App.tsx will scroll after render
+      navigate(`/#${target}`);
+    }
   };
 
   React.useEffect(() => {

@@ -7,16 +7,16 @@ export const Footer = () => {
   const navigate = useNavigate();
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, target: string) => {
-    if (pathname !== '/') {
-      e.preventDefault();
-      navigate('/');
-      setTimeout(() => {
-        const el = document.getElementById(target);
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    } else {
+    e.preventDefault();
+    if (pathname === '/') {
       const el = document.getElementById(target);
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      if (el) {
+        const navbarHeight = 64;
+        const top = el.getBoundingClientRect().top + window.scrollY - navbarHeight;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+    } else {
+      navigate(`/#${target}`);
     }
   };
 
@@ -47,10 +47,10 @@ export const Footer = () => {
         <div>
           <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Language</h4>
           <ul className="space-y-4 text-sm text-black/40 dark:text-white/40">
-            <li><a href="#features" className="hover:text-cyan-500 transition-colors">Features</a></li>
-            <li><a href="#syntax" className="hover:text-cyan-500 transition-colors">Syntax</a></li>
-            <li><a href="#ide" className="hover:text-cyan-500 transition-colors">IDE</a></li>
-            <li><a href="/download" className="hover:text-cyan-500 transition-colors">Download</a></li>
+            <li><a href="#features" onClick={(e) => handleNavClick(e, 'features')} className="hover:text-cyan-500 transition-colors">Features</a></li>
+            <li><a href="#syntax" onClick={(e) => handleNavClick(e, 'syntax')} className="hover:text-cyan-500 transition-colors">Syntax</a></li>
+            <li><a href="#ide" onClick={(e) => handleNavClick(e, 'ide')} className="hover:text-cyan-500 transition-colors">IDE</a></li>
+            <li><Link to="/download" className="hover:text-cyan-500 transition-colors">Download</Link></li>
           </ul>
         </div>
         
@@ -58,8 +58,8 @@ export const Footer = () => {
           <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Ecosystem</h4>
           <ul className="space-y-4 text-sm text-black/40 dark:text-white/40">
             <li><a href="#blog" onClick={(e) => handleNavClick(e, 'blog')} className="hover:text-cyan-500 transition-colors">Blog</a></li>
-            <li><a href="#roadmap" className="hover:text-cyan-500 transition-colors">Roadmap</a></li>
-            <li><a href="#faq" className="hover:text-cyan-500 transition-colors">FAQ</a></li>
+            <li><a href="#roadmap" onClick={(e) => handleNavClick(e, 'roadmap')} className="hover:text-cyan-500 transition-colors">Roadmap</a></li>
+            <li><a href="#faq" onClick={(e) => handleNavClick(e, 'faq')} className="hover:text-cyan-500 transition-colors">FAQ</a></li>
             <li><a href="https://github.com/SENODROOM/Quantum-Language" className="hover:text-cyan-500 transition-colors">GitHub</a></li>
           </ul>
         </div>
