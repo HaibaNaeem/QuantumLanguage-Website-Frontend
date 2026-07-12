@@ -21,6 +21,18 @@ interface QuantumTerminalProps {
 
 If this needs to change for any reason, please talk to me first — Member 4 and probably Member 2/3 depend on it too.
 
+### `onRun` — how it actually behaves
+
+This is the hook Member 2/3/4 will build on, so spelling it out exactly:
+
+- **Signature:** `(file: string) => void`
+- **When it fires:** only when the user types `quantum <file>` or `qrun <file>` (as the first word of the command) and presses Enter. Anything else — `clear`, `help`, `history`, or any other typed text — does not call it.
+- **What `file` actually is:** whatever the *second* whitespace-separated token in the command was, passed through as-is. So `quantum hello.sa` → `onRun("hello.sa")`. If there are extra args after that, e.g. `qrun hello.sa --debug`, only `"hello.sa"` gets passed — everything after the filename is currently ignored.
+- **Not validated.** I don't check the string against `files` (the open tabs) before firing — if someone types `quantum doesnotexist.sa`, `onRun("doesnotexist.sa")` still fires. Whoever consumes it should validate/handle a filename that isn't actually open.
+- **No filename → no call.** Typing just `quantum` or `qrun` with nothing after it does not fire `onRun` (there's no second token to pass).
+- **Return value is ignored** — it's fire-and-forget, called synchronously right after the terminal prints its placeholder line (`(no backend wired yet) → ...`). The terminal doesn't wait for anything back from it and doesn't know if the "run" actually succeeded — that part is on whoever wires up the real execution.
+- It's read through a ref internally (not the prop directly), so it's always the latest function passed in, even without remounting the terminal.
+
 ## What I built
 
 **Terminal itself:**
