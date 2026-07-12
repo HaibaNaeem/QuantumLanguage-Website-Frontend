@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, Send, X, Bot, Sparkles, AlertCircle, Copy, Check } from 'lucide-react';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTheme } from '../contexts/ThemeContext';
 import { cn } from '../lib/utils';
 
@@ -9,11 +11,88 @@ interface Message {
   content: string;
 }
 
+const ChatbotLogo = ({ className }: { className?: string }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={cn("w-6 h-6", className)}
+  >
+    {/* Headband */}
+    <path
+      d="M5 13a7 7 0 0114 0"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+    
+    {/* Left Ear Cup */}
+    <rect
+      x="3.5"
+      y="11.5"
+      width="2"
+      height="4"
+      rx="1"
+      fill="#06b6d4"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+    
+    {/* Right Ear Cup */}
+    <rect
+      x="18.5"
+      y="11.5"
+      width="2"
+      height="4"
+      rx="1"
+      fill="#06b6d4"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+    
+    {/* Gear in the center */}
+    <circle
+      cx="12"
+      cy="13"
+      r="2"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      fill="none"
+    />
+    {/* Gear Teeth */}
+    <path
+      d="M12 10v-1M12 17v-1M9 13H8M16 13h-1M9.9 10.9l-.7-.7M14.1 15.1l-.7-.7M9.9 15.1l-.7.7M14.1 10.9l.7-.7"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+    
+    {/* Microphone Arm */}
+    <path
+      d="M19 14.5c0 3-2 3.5-3.5 3.5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+    {/* Microphone Tip */}
+    <rect
+      x="12"
+      y="17"
+      width="3.5"
+      height="2"
+      rx="1"
+      fill="#06b6d4"
+      stroke="currentColor"
+      strokeWidth="1"
+    />
+  </svg>
+);
+
 const STARTER_PROMPTS = [
-  { text: "What is the purpose of Quantum?", label: "Purpose & VM" },
-  { text: "Show me how to use pointers in Quantum", label: "Pointers & Address" },
-  { text: "How do I define a class and extend it?", label: "OOP Classes" },
-  { text: "Show the native crypto functions in Quantum", label: "Crypto Helpers" }
+  { text: "What is Quantum and how does the architecture work?", label: "Overview & Architecture" },
+  { text: "Show me Quantum's language syntax (multi-syntax, pointers, OOP, exceptions)", label: "Language Syntax & OOP" },
+  { text: "What functions are available in the Standard Library?", label: "Standard Library Functions" },
+  { text: "How do I build Quantum and run programs?", label: "Build & CLI Reference" }
 ];
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -36,11 +115,11 @@ export const ChatAssistant = () => {
         content: `### Welcome to Quantum AI Assistant!
 I'm here to help you learn and build applications using the **Quantum Language**.
 
-Here are some topics you can ask me about:
-* **Syntax styles**: How we combine Python, JS, and C++.
-* **Pointers**: How address-of (\`&\`) and dereferencing (\`*\`) work.
-* **OOP**: Defining classes, methods, and using \`extends\`.
-* **Standard Library**: Native crypto, math, and file functions.
+Here is what you can ask me about:
+* **Architecture & Internals**: Two execution paths (compile + bundle vs direct interpretation), compiler stack, and stack-based VM call frames.
+* **Multi-Syntax & Language Features**: Combining Python, JS, and C/C++ syntax in a single file, closures, OOP with inheritance, exception handling, and pointers.
+* **Standard Library & Crypto**: Over 200 native functions, including hashing (SHA-256/1, MD5), encryption (AES-128 ECB), rot13, base64, Shannon entropy, and file I/O.
+* **Build & CLI Tools**: Running the REPL, running tests, compiling with \`quantum.exe\`, and using the \`qrun.exe\` interpreter.
 
 Select a quick prompt below or type your questions directly!`
       }
@@ -54,14 +133,19 @@ Select a quick prompt below or type your questions directly!`
 
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   React.useEffect(() => {
     sessionStorage.setItem('quantum_chat_history', JSON.stringify(messages));
     scrollToBottom();
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  React.useEffect(() => {
+    const timer = setTimeout(scrollToBottom, 50);
+    return () => clearTimeout(timer);
+  }, [isTyping]);
 
   const handleSend = async (textToSend: string) => {
     if (!textToSend.trim() || isTyping) return;
@@ -130,9 +214,10 @@ Select a quick prompt below or type your questions directly!`
   };
 
   const parseMessageContent = (content: string, messageIndex: number) => {
+    // 1. Split by code blocks
     const parts = content.split(/(```[a-z]*\n[\s\S]*?\n```)/g);
 
-    return parts.map((part, partIdx) => {
+    return parts.flatMap((part, partIdx) => {
       if (part.startsWith('```')) {
         const match = part.match(/```([a-z]*)\n([\s\S]*?)\n```/);
         const language = match ? match[1] : 'javascript';
@@ -140,10 +225,11 @@ Select a quick prompt below or type your questions directly!`
         const codeBlockId = `${messageIndex}-${partIdx}`;
 
         return (
-          <div key={partIdx} className="my-3 border border-black/10 dark:border-white/10 rounded-xl overflow-hidden bg-black/5 dark:bg-[#06090e] font-mono text-xs text-left">
+          <div key={partIdx} className="my-4 border border-black/10 dark:border-white/10 rounded-xl overflow-hidden bg-black/5 dark:bg-[#06090e] font-mono text-xs text-left shadow-md">
             <div className="flex items-center justify-between px-3 py-1.5 bg-black/5 dark:bg-white/5 border-b border-black/10 dark:border-white/5 text-[9px] text-black/50 dark:text-white/40 uppercase font-bold tracking-wider">
               <span>{language || 'code'}</span>
               <button
+                type="button"
                 onClick={() => handleCopyCode(code, codeBlockId)}
                 className="flex items-center gap-1 hover:text-cyan-500 transition-colors cursor-pointer"
               >
@@ -160,46 +246,172 @@ Select a quick prompt below or type your questions directly!`
                 )}
               </button>
             </div>
-            <pre className="p-3 overflow-x-auto whitespace-pre custom-scrollbar text-green-600 dark:text-green-400 leading-relaxed">
-              <code>{code}</code>
-            </pre>
+            <div className="p-3 overflow-x-auto custom-scrollbar">
+              <SyntaxHighlighter
+                language={language === 'sa' ? 'javascript' : language || 'javascript'}
+                style={theme === 'dark' ? atomDark : undefined}
+                customStyle={{ background: 'transparent', padding: 0, margin: 0, fontSize: '11px', lineHeight: '1.6' }}
+              >
+                {code.trim()}
+              </SyntaxHighlighter>
+            </div>
           </div>
         );
       }
 
+      // 2. Parse inline lines (headings, lists, tables, paragraphs)
       const lines = part.split('\n');
-      return (
-        <div key={partIdx} className="space-y-1">
-          {lines.map((line, lineIdx) => {
-            if (line.trim().startsWith('* ')) {
-              return (
-                <ul key={lineIdx} className="list-disc pl-4 my-1">
-                  <li className="text-xs">{renderTextWithInlineFormatting(line.substring(2))}</li>
-                </ul>
+      const renderedElements: React.ReactNode[] = [];
+      let i = 0;
+
+      while (i < lines.length) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        // Skip empty lines
+        if (!trimmed) {
+          renderedElements.push(<div key={`empty-${i}`} className="h-2" />);
+          i++;
+          continue;
+        }
+
+        // --- Table Parser ---
+        if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+          const tableLines: string[] = [];
+          while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+            tableLines.push(lines[i].trim());
+            i++;
+          }
+
+          if (tableLines.length > 0) {
+            // Filter out separator lines (e.g., |---| or |:---|)
+            const rowsData = tableLines.filter(l => !/^[|\s:-]+$/.test(l)).map(l => {
+              return l.split('|').map(cell => cell.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+            });
+
+            if (rowsData.length > 0) {
+              const headers = rowsData[0];
+              const bodyRows = rowsData.slice(1);
+
+              renderedElements.push(
+                <div key={`table-${i}`} className="my-4 overflow-x-auto rounded-xl border border-black/10 dark:border-white/10 shadow-sm bg-black/5 dark:bg-white/5">
+                  <table className="w-full border-collapse text-left text-[11px]">
+                    <thead>
+                      <tr className="bg-black/10 dark:bg-white/10 border-b border-black/10 dark:border-white/10">
+                        {headers.map((h, hIdx) => (
+                          <th key={hIdx} className="px-2.5 py-1.5 font-bold text-black dark:text-white uppercase tracking-wider text-[9px]">
+                            {renderTextWithInlineFormatting(h)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-black/5 dark:divide-white/5">
+                      {bodyRows.map((row, rIdx) => (
+                        <tr key={rIdx} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                          {row.map((cell, cIdx) => (
+                            <td key={cIdx} className="px-2.5 py-1.5 text-black/80 dark:text-white/80 font-mono text-[10px]">
+                              {renderTextWithInlineFormatting(cell)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               );
             }
-            if (line.trim().startsWith('### ')) {
-              return (
-                <h4 key={lineIdx} className="text-xs font-bold text-black dark:text-white mt-3 mb-1 uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
-                  {renderTextWithInlineFormatting(line.substring(4))}
-                </h4>
-              );
+          }
+          continue;
+        }
+
+        // --- Unordered List Parser ---
+        if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+          const listItems: string[] = [];
+          while (i < lines.length && (lines[i].trim().startsWith('* ') || lines[i].trim().startsWith('- '))) {
+            listItems.push(lines[i].trim().substring(2));
+            i++;
+          }
+
+          renderedElements.push(
+            <ul key={`ul-${i}`} className="list-disc pl-5 my-2 space-y-1 text-xs">
+              {listItems.map((item, itemIdx) => (
+                <li key={itemIdx} className="leading-relaxed">
+                  {renderTextWithInlineFormatting(item)}
+                </li>
+              ))}
+            </ul>
+          );
+          continue;
+        }
+
+        // --- Ordered List Parser ---
+        if (/^\d+\.\s/.test(trimmed)) {
+          const listItems: string[] = [];
+          while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
+            const match = lines[i].trim().match(/^\d+\.\s(.*)/);
+            if (match) {
+              listItems.push(match[1]);
             }
-            if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
-              return (
-                <p key={lineIdx} className="text-xs font-bold text-black dark:text-white mt-1">
-                  {renderTextWithInlineFormatting(line.replace(/\*\*/g, ''))}
-                </p>
-              );
-            }
-            return line.trim() ? (
-              <p key={lineIdx} className="text-xs leading-relaxed">
-                {renderTextWithInlineFormatting(line)}
-              </p>
-            ) : <div key={lineIdx} className="h-1.5" />;
-          })}
-        </div>
-      );
+            i++;
+          }
+
+          renderedElements.push(
+            <ol key={`ol-${i}`} className="list-decimal pl-5 my-2 space-y-1 text-xs">
+              {listItems.map((item, itemIdx) => (
+                <li key={itemIdx} className="leading-relaxed">
+                  {renderTextWithInlineFormatting(item)}
+                </li>
+              ))}
+            </ol>
+          );
+          continue;
+        }
+
+        // --- Headings Parser ---
+        if (trimmed.startsWith('#')) {
+          const headingLevel = (trimmed.match(/^#+/) || [''])[0].length;
+          const text = trimmed.replace(/^#+\s*/, '');
+          const formattedText = renderTextWithInlineFormatting(text);
+
+          if (headingLevel === 1) {
+            renderedElements.push(
+              <h1 key={`h1-${i}`} className="text-sm font-extrabold text-black dark:text-white mt-4 mb-2 border-b border-black/10 dark:border-white/10 pb-1">
+                {formattedText}
+              </h1>
+            );
+          } else if (headingLevel === 2) {
+            renderedElements.push(
+              <h2 key={`h2-${i}`} className="text-xs font-bold text-black dark:text-white mt-4 mb-2 uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+                {formattedText}
+              </h2>
+            );
+          } else if (headingLevel === 3) {
+            renderedElements.push(
+              <h3 key={`h3-${i}`} className="text-xs font-bold text-black/85 dark:text-white/85 mt-3 mb-1">
+                {formattedText}
+              </h3>
+            );
+          } else {
+            renderedElements.push(
+              <h4 key={`h4-${i}`} className="text-[11px] font-bold text-black/70 dark:text-white/70 mt-2 mb-1">
+                {formattedText}
+              </h4>
+            );
+          }
+          i++;
+          continue;
+        }
+
+        // --- Standard Paragraph ---
+        renderedElements.push(
+          <p key={`p-${i}`} className="text-xs leading-relaxed my-1.5 text-black/85 dark:text-white/90">
+            {renderTextWithInlineFormatting(trimmed)}
+          </p>
+        );
+        i++;
+      }
+
+      return renderedElements;
     });
   };
 
@@ -224,7 +436,7 @@ Select a quick prompt below or type your questions directly!`
             <div className="p-4 bg-gradient-to-r from-cyan-500/20 to-blue-500/10 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="relative">
-                  <Bot className="w-5 h-5 text-cyan-500" />
+                  <ChatbotLogo className="w-5 h-5 text-cyan-500" />
                   <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 border border-white dark:border-black animate-pulse" />
                 </div>
                 <div>
@@ -273,23 +485,22 @@ Select a quick prompt below or type your questions directly!`
                   <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
               )}
+              {/* Starter Chips */}
+              {!isTyping && (
+                <div className="pt-2 flex flex-wrap gap-1.5 justify-start">
+                  {STARTER_PROMPTS.map((prompt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleSend(prompt.text)}
+                      className="text-[9px] font-medium px-2 py-1.5 rounded-lg border border-black/10 dark:border-white/10 hover:border-cyan-500 dark:hover:border-cyan-400 bg-white dark:bg-zinc-900 text-black/60 dark:text-white/60 hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors shadow-sm cursor-pointer"
+                    >
+                      {prompt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
-
-            {/* Starter Chips */}
-            {messages.length === 1 && (
-              <div className="p-3 border-t border-black/5 dark:border-white/5 bg-black/5 dark:bg-white/5 flex flex-wrap gap-2 justify-center">
-                {STARTER_PROMPTS.map((prompt, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleSend(prompt.text)}
-                    className="text-[9px] font-medium px-2 py-1.5 rounded-lg border border-black/10 dark:border-white/10 hover:border-cyan-500 dark:hover:border-cyan-400 bg-white dark:bg-zinc-900 text-black/60 dark:text-white/60 hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors shadow-sm cursor-pointer"
-                  >
-                    {prompt.label}
-                  </button>
-                ))}
-              </div>
-            )}
 
             {/* Input Bar */}
             <form 
@@ -329,7 +540,7 @@ Select a quick prompt below or type your questions directly!`
         onClick={() => setIsOpen(!isOpen)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-500 to-cyan-600 dark:from-cyan-500 dark:to-blue-600 flex items-center justify-center text-black dark:text-white shadow-[0_0_20px_rgba(6,182,212,0.4)] border border-cyan-400/30 cursor-pointer relative"
+        className="w-12 h-12 rounded-full bg-[#08252e] hover:bg-[#0c3745] text-white flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.4)] border border-cyan-500/30 cursor-pointer relative"
         title="Ask Quantum AI"
       >
         <AnimatePresence mode="wait">
@@ -341,7 +552,7 @@ Select a quick prompt below or type your questions directly!`
               exit={{ rotate: 90, opacity: 0 }}
               transition={{ duration: 0.15 }}
             >
-              <X className="w-5 h-5 text-black" />
+              <X className="w-5 h-5 text-white" />
             </motion.div>
           ) : (
             <motion.div
@@ -352,7 +563,7 @@ Select a quick prompt below or type your questions directly!`
               transition={{ duration: 0.15 }}
               className="flex items-center justify-center"
             >
-              <MessageSquare className="w-5 h-5 text-black" />
+              <ChatbotLogo className="w-6 h-6 text-white" />
               <Sparkles className="w-3 h-3 absolute -top-1 -right-1 text-cyan-400 dark:text-cyan-300 animate-pulse" />
             </motion.div>
           )}
