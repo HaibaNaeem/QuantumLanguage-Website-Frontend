@@ -11,6 +11,8 @@ import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTheme } from '../contexts/ThemeContext';
 import { cn } from '../lib/utils';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 function levenshteinDistance(left: string, right: string) {
   if (!left.length) return right.length;
   if (!right.length) return left.length;
@@ -207,7 +209,7 @@ srv.start();`
     const dynamicExt = activeFile.substring(activeFile.lastIndexOf('.'));
 
     try {
-      const response = await fetch(`http://localhost:5000/api/execute`, {
+      const response = await fetch(`${API_BASE}/api/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -238,7 +240,7 @@ srv.start();`
     } catch (error) {
       setOutput([
         'Network Error: Failed to establish connection with execution backend API.',
-        'Make sure your local backend is running on port 5000.'
+        `Make sure your backend server is running at ${API_BASE}.`
       ]);
       console.error("Execution failed:", error);
     } finally {

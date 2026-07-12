@@ -27,6 +27,7 @@ import { BlogPostPage } from './components/BlogPostPage';
 import { Ecosystem } from './components/Ecosystem';
 import { Installation } from './components/Installation';
 import { Newsletter } from './components/Newsletter';
+import { ChatAssistant } from './components/ChatAssistant';
 
 export default function App() {
   const location = useLocation();
@@ -134,6 +135,7 @@ export default function App() {
         <Footer />
         <ScrollProgress />
         <ScrollToTop />
+        <ChatAssistant />
         <CustomCursor />
       </div>
     </ErrorBoundary>
