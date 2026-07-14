@@ -18,6 +18,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTheme } from '../contexts/ThemeContext';
 import { blogs, BlogPost } from '../data/blogs';
+import { Newsletter } from './Newsletter'; 
 
 export const BlogPostPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -371,33 +372,7 @@ export const BlogPostPage = () => {
         </div>
 
         {/* Newsletter Subscription Form */}
-        <div className="w-full bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/10 rounded-[28px] p-8 md:p-12 mb-20 text-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/5 rounded-full blur-2xl pointer-events-none" />
-          <Mail className="w-8 h-8 mx-auto mb-6 text-cyan-600 dark:text-cyan-400" />
-          <h3 className="text-2xl font-bold uppercase tracking-tight text-black dark:text-white mb-3">
-            Subscribe to the newsletter
-          </h3>
-          <p className="text-black/50 dark:text-white/50 text-sm max-w-md mx-auto mb-8">
-            Get technical insights, announcements, and tutorials straight to your inbox.
-          </p>
-          <form 
-            onSubmit={(e) => e.preventDefault()}
-            className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
-          >
-            <input 
-              type="email" 
-              placeholder="Enter your email address"
-              required
-              className="flex-1 bg-white dark:bg-black border border-black/5 dark:border-white/10 rounded-full px-5 py-3 text-sm outline-none focus:border-cyan-500/50"
-            />
-            <button 
-              type="submit"
-              className="bg-black dark:bg-white text-white dark:text-black hover:bg-cyan-500 dark:hover:bg-cyan-400 font-bold px-6 py-3 rounded-full text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-            >
-              Subscribe <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </form>
-        </div>
+        <Newsletter />
 
         {/* Related Articles Title */}
         <div className="border-t border-black/5 dark:border-white/10 pt-16 mb-12">

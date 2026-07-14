@@ -7,6 +7,11 @@ export const Newsletter = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    //hahahaha
+    console.log("!!! NEWSLETTER COMPONENT IS WORKING !!!");
+    //hahahaha
+
     if (email) {
       setSubscribed(true);
       setEmail('');
