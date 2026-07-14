@@ -4,20 +4,50 @@ import { motion } from 'motion/react';
 export const Newsletter = () => {
   const [email, setEmail] = React.useState('');
   const [subscribed, setSubscribed] = React.useState(false);
+const [message, setMessage] = React.useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setMessage('');
 
-    //hahahaha
-    console.log("!!! NEWSLETTER COMPONENT IS WORKING !!!");
-    //hahahaha
+  console.log("Submit clicked! Attempting to send email:", email); // ADD THIS LINE
 
-    if (email) {
-      setSubscribed(true);
-      setEmail('');
-      setTimeout(() => setSubscribed(false), 5000);
+  try {
+    const response = await fetch('http://localhost:5000/api/newsletter/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await response.json();
+    console.log("Server response:", data); // ADD THIS LINE
+    
+    if (response.ok) {
+        setSubscribed(true); //  button set to subscribed state
+        setEmail(''); // This clears the input box immediately
+        setMessage("Thanks for subscribing!");
+      // Wait 3 seconds, then reset the button back to 'SUBSCRIBE'
+      setTimeout(() => {
+        setSubscribed(false);
+        setMessage('');
+      }, 3000);
+    }else {
+      // This runs if the status is 400 (Already subscribed)
+     setMessage(data.message);
+     setEmail('');
+     setTimeout(() => {
+        setMessage('');
+      }, 3000);
     }
-  };
+  } catch (error) {
+    console.error("Critical error:", error); // ADD THIS LINE
+    setMessage("Connection error. Please try again.");
+    setEmail('');
+    setTimeout(() => {
+        setMessage('');
+      }, 3000);
+  }
+};
 
   return (
     <section className="py-24 bg-cyan-500 text-black overflow-hidden relative">
@@ -47,6 +77,11 @@ export const Newsletter = () => {
             {subscribed ? 'SUBSCRIBED!' : 'SUBSCRIBE'}
           </button>
         </form>
+        {message && (
+  <p className={`mt-4 text-lg text-center font-semibold ${subscribed ? 'text-green-600' : 'text-red-600'}`}>
+    {message}
+  </p>
+)}
         {subscribed && (
           <motion.p 
             initial={{ opacity: 0, y: 10 }}
