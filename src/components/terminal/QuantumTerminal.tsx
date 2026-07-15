@@ -238,13 +238,11 @@ export default function QuantumTerminal({ files, activeFile, onRun, theme = "dar
     };
 
     // Setup output streaming from socket manager
-    useEffect(() => {
-      socketManager.onOutputReceived = (text: string) => {
-        if (termWriteRef.current) {
-          termWriteRef.current(text);
-        }
-      };
-    }, []);
+    socketManager.onOutputReceived = (text: string) => {
+      if (termWriteRef.current) {
+        termWriteRef.current(text);
+      }
+    };
 
     const submitCommand = () => {
       const command = lineBufferRef.current.trim();
