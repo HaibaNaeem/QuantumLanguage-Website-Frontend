@@ -125,6 +125,12 @@ srv.start();`
   
   const editorRef = React.useRef<HTMLTextAreaElement>(null);
   const preRef = React.useRef<HTMLDivElement>(null);
+  const lineNumRef = React.useRef<HTMLDivElement>(null);
+  const measurerRef = React.useRef<HTMLSpanElement>(null);
+  // Holds a caret position that needs to be applied to the textarea the
+  // moment its new value lands in the DOM (used by Tab / Enter, which
+  // insert text programmatically rather than via native typing).
+  const pendingCaretRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     localStorage.setItem('quantum_files', JSON.stringify(files));
@@ -142,12 +148,147 @@ srv.start();`
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
 
+  // Keep the line-number gutter's scroll position in sync with the
+  // textarea AND the syntax-highlighted overlay.
   const handleScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
+    const { scrollTop, scrollLeft } = e.currentTarget;
+    
     if (preRef.current) {
-      preRef.current.scrollTop = e.currentTarget.scrollTop;
-      preRef.current.scrollLeft = e.currentTarget.scrollLeft;
+  const pre = preRef.current.querySelector("pre");
+
+  if (pre) {
+    pre.scrollTop = scrollTop;
+    pre.scrollLeft = scrollLeft;
+  }
+}
+    if (lineNumRef.current) {
+      lineNumRef.current.scrollTop = scrollTop;
     }
   };
+
+  // Explicit "keep caret visible" logic, both horizontal AND vertical.
+  const scrollCaretIntoView = () => {
+    const editor = editorRef.current;
+    const measurer = measurerRef.current;
+    if (!editor || !measurer) return;
+
+    const caretPos = editor.selectionStart;
+    const value = editor.value;
+    const linesBeforeCaret = value.substring(0, caretPos).split('\n');
+    const currentLineTextBeforeCaret = linesBeforeCaret[linesBeforeCaret.length - 1];
+    const caretRow = linesBeforeCaret.length - 1; // 0-indexed row of the caret
+
+    measurer.textContent = currentLineTextBeforeCaret;
+    const caretX = measurer.offsetWidth;
+    const editorRect = editor.getBoundingClientRect();
+const scrollWidth = editor.scrollWidth;
+const clientWidth = editor.clientWidth;
+
+    const computedStyle = getComputedStyle(editor);
+    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+    const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+    const lineHeight = parseFloat(computedStyle.lineHeight) || 20;
+
+    // --- Horizontal ---
+    // FIX: previously, when a line was longer than the visible width and the
+    // caret sat at the very end (e.g. right after typing), caretAbsoluteX
+    // could compute correctly but the check order + missing clientWidth
+    // guard let the caret land exactly on the boundary, causing the browser's
+    // OWN native "keep caret visible" nudge (still active in some cases) to
+    // fight with this one, producing the "jumps backward / text hides"
+    // effect. We now always push the caret to sit exactly `bufferX` inside
+    // the right edge when it overflows, giving consistent forward-scrolling
+    // behavior like VS Code, and we also handle the case where the line is
+    // shorter than the viewport (snap scrollLeft back to 0 territory).
+    const bufferX = 24; // px breathing room so caret never touches the very edge
+    const caretAbsoluteX = caretX + paddingLeft;
+   
+    const visibleLeft = editor.scrollLeft;
+const visibleRight = visibleLeft + clientWidth;
+
+if (caretAbsoluteX > visibleRight - bufferX) {
+  editor.scrollLeft = Math.min(
+    caretAbsoluteX - clientWidth + bufferX,
+    scrollWidth - clientWidth
+  );
+} else if (caretAbsoluteX < visibleLeft + bufferX) {
+  editor.scrollLeft = Math.max(0, caretAbsoluteX - bufferX);
+}
+
+
+    // --- Vertical ---
+    const bufferY = 8; // small breathing room so the caret's line isn't flush against the edge
+    const caretTop = caretRow * lineHeight + paddingTop;
+    const caretBottom = caretTop + lineHeight;
+    const visibleTop = editor.scrollTop;
+    const visibleBottom = editor.scrollTop + editor.clientHeight;
+
+    if (caretBottom > visibleBottom - bufferY) {
+      editor.scrollTop = caretBottom - editor.clientHeight + bufferY;
+    } else if (caretTop < visibleTop + bufferY) {
+      editor.scrollTop = Math.max(0, caretTop - bufferY);
+    }
+  };
+
+  // Whenever React writes a new .value into a controlled <textarea>, the
+  // browser silently resets that textarea's scrollLeft/scrollTop back to 0.
+  // useLayoutEffect runs synchronously right after the DOM is updated but
+  // before the browser paints anything, so the correction is applied before
+  // it's ever visible.
+  React.useLayoutEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    // If Tab / Enter queued a caret position, apply it now that the new
+    // value is actually in the DOM — this MUST happen before
+    // scrollCaretIntoView() reads editor.selectionStart, otherwise caret
+    // metrics are computed against the stale (pre-edit) caret position,
+    // which was the root cause of the "wrong direction" / "cursor stuck"
+    // scroll glitches.
+    if (pendingCaretRef.current !== null) {
+      editor.selectionStart = editor.selectionEnd = pendingCaretRef.current;
+      pendingCaretRef.current = null;
+    }
+
+    scrollCaretIntoView();
+   if (preRef.current) {
+  const pre = preRef.current.querySelector("pre");
+
+  if (pre) {
+    pre.scrollTop = editor.scrollTop;
+    pre.scrollLeft = editor.scrollLeft;
+  }
+}
+    if (lineNumRef.current) {
+      lineNumRef.current.scrollTop = editor.scrollTop;
+    }
+  }, [files[activeFile], activeFile]);
+
+  // Caret can also move via arrow keys, Home/End, or a mouse click without
+  // any value change firing — onSelect covers all of these.
+
+  const handleSelectionChange = () => {
+  requestAnimationFrame(() => {
+    if (!editorRef.current) return;
+
+    const editor = editorRef.current;
+
+    
+
+    scrollCaretIntoView();
+
+    const { scrollTop, scrollLeft } = editor;
+
+    if (preRef.current) {
+ 
+
+  preRef.current.scrollTop = scrollTop;
+  preRef.current.scrollLeft = scrollLeft;
+
+ 
+}
+  });
+};
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
@@ -156,30 +297,44 @@ srv.start();`
       const end = e.currentTarget.selectionEnd;
       const value = e.currentTarget.value;
       const newValue = value.substring(0, start) + "    " + value.substring(end);
+      pendingCaretRef.current = start + 4;
       setFiles(prev => ({ ...prev, [activeFile]: newValue }));
-      setTimeout(() => {
-        if (editorRef.current) {
-          editorRef.current.selectionStart = editorRef.current.selectionEnd = start + 4;
-        }
-      }, 0);
     } else if (e.key === 'Enter') {
+      // FIX #2 & #3: Enter is now ALWAYS handled programmatically, for every
+      // case (indented or not). Previously, "plain" Enter (no indent to
+      // carry over, line doesn't end in `{`) fell through to native browser
+      // insertion instead of going through setFiles + pendingCaretRef. That
+      // meant:
+      //   - the newline WAS technically created by the browser, but the
+      //     caret position and the layout-effect's scroll correction were
+      //     only reliably wired up for the programmatic path, so behavior
+      //     was inconsistent between "Enter on an indented line" and
+      //     "Enter on a plain line" (this is what looked like "Enter
+      //     sometimes doesn't work").
+      //   - because native insertion bypasses pendingCaretRef, the
+      //     useLayoutEffect had nothing to re-apply, so on some
+      //     browsers/timings the caret's row could be measured before the
+      //     DOM/selection had settled, which is also what broke
+      //     auto-scroll-to-bottom-line right after pressing Enter.
+      // Routing every Enter press through the same setFiles + pendingCaretRef
+      // + useLayoutEffect pipeline makes line creation, caret placement, and
+      // auto-scroll all consistent regardless of indentation.
+      e.preventDefault();
       const start = e.currentTarget.selectionStart;
+      const end = e.currentTarget.selectionEnd;
       const value = e.currentTarget.value;
       const lines = value.substring(0, start).split('\n');
       const currentLine = lines[lines.length - 1];
       const indent = currentLine.match(/^\s*/)?.[0] || '';
       const extraIndent = currentLine.trim().endsWith('{') ? '    ' : '';
-      if (indent || extraIndent) {
-        e.preventDefault();
-        const newValue = value.substring(0, start) + '\n' + indent + extraIndent + value.substring(start);
-        setFiles(prev => ({ ...prev, [activeFile]: newValue }));
-        setTimeout(() => {
-          if (editorRef.current) {
-            editorRef.current.selectionStart = editorRef.current.selectionEnd = start + 1 + indent.length + extraIndent.length;
-          }
-        }, 0);
-      }
+      const insertion = '\n' + indent + extraIndent;
+      const newValue = value.substring(0, start) + insertion + value.substring(end);
+      pendingCaretRef.current = start + insertion.length;
+      setFiles(prev => ({ ...prev, [activeFile]: newValue }));
     }
+    // Backspace/Delete need no special handling here — the browser edits
+    // natively, onChange fires, setFiles updates state, and the
+    // useLayoutEffect above corrects scroll before the next paint.
   };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -205,7 +360,6 @@ srv.start();`
       return;
     }
     
-    // Extract the dynamic extension from the current active file (e.g., ".js", ".cpp", ".sa")
     const dynamicExt = activeFile.substring(activeFile.lastIndexOf('.'));
 
     try {
@@ -216,7 +370,7 @@ srv.start();`
         },
         body: JSON.stringify({
           code: codeContent,
-          ext: dynamicExt // Dynamically passes .js, .cpp, or .sa to your backend API
+          ext: dynamicExt
         })
       });
 
@@ -251,19 +405,16 @@ srv.start();`
   const createFile = () => {
     if (!newFileName) return;
     
-    // Check if it already has a valid allowed extension
     const hasValidExt =
     newFileName.endsWith('.sa') ||
     newFileName.endsWith('.js') ||
     newFileName.endsWith('.py') ||
     newFileName.endsWith('.cpp') ||
     newFileName.endsWith('.c');
-    // If it doesn't have an extension, default to .sa
     const name = hasValidExt ? newFileName : `${newFileName}.sa`;
     
     if (files[name]) { alert('File already exists'); return; }
     
-    // Put a clean default template inside depending on what type of file they make
     let defaultContent = '// New Quantum Script\n';
     if (name.endsWith('.js')) defaultContent = '// New JavaScript File\nconsole.log("Hello from JS!");\n';
     if (name.endsWith('.py')) defaultContent = '# New Python File\nprint("Hello from Python!")\n';
@@ -292,7 +443,7 @@ srv.start();`
     element.click();
   };
 
-  const lineCount = files[activeFile].split('\n').length;
+  const lineCount = (files[activeFile] || '').split('\n').length;
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
 
   return (
@@ -480,9 +631,12 @@ srv.start();`
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="flex-1 flex overflow-hidden relative bg-white dark:bg-[#0d1117] transition-colors duration-300">
                   {/* Line Numbers */}
-                  <div className="w-10 md:w-14 bg-[#f8fafc] dark:bg-[#0d1117] border-r border-black/5 dark:border-white/5 flex flex-col items-end pt-5 pr-2 md:pr-3 select-none font-mono text-[10px] md:text-[11px] text-black/20 dark:text-white/20">
+                  <div 
+                    ref={lineNumRef}
+                    className="w-10 md:w-14 bg-[#f8fafc] dark:bg-[#0d1117] border-r border-black/5 dark:border-white/5 flex flex-col items-end pt-4 md:pt-5 pr-2 md:pr-3 select-none font-mono text-[10px] md:text-[11px] text-black/20 dark:text-white/20 overflow-hidden"
+                  >
                     {lineNumbers.map(n => (
-                      <div key={n} className="h-[1.6rem] leading-[1.6rem] flex items-center">
+                      <div key={n} className="h-[19.2px] md:h-[22.4px] leading-[19.2px] md:leading-[22.4px] flex items-center">
                         {n}
                       </div>
                     ))}
@@ -496,22 +650,45 @@ srv.start();`
                       onChange={handleCodeChange}
                       onScroll={handleScroll}
                       onKeyDown={handleKeyDown}
+                      onSelect={handleSelectionChange}
+                      onClick={handleSelectionChange}
                       spellCheck={false}
                       aria-label="Quantum source code editor"
                       className="absolute inset-0 w-full h-full p-4 md:p-5 font-mono text-xs md:text-sm bg-transparent text-transparent caret-cyan-500 resize-none outline-none z-10 custom-scrollbar whitespace-pre overflow-auto leading-[1.6]"
                     />
+                    <span
+                      ref={measurerRef}
+                      aria-hidden="true"
+                      className="absolute top-0 left-0 invisible whitespace-pre font-mono text-xs md:text-sm p-0 m-0 pointer-events-none"
+                      style={{ height: 0, overflow: 'hidden' }}
+                    />
                     <div 
                       ref={preRef}
-                      className="absolute inset-0 p-4 md:p-5 font-mono text-xs md:text-sm pointer-events-none overflow-hidden leading-[1.6]"
+                      className="absolute inset-0 p-4 md:p-5 font-mono text-xs md:text-sm pointer-events-none overflow-auto leading-[1.6]"
                     >
                       <SyntaxHighlighter
                         language="javascript"
                         style={theme === 'dark' ? atomDark : undefined}
-                        customStyle={{ 
-                          background: 'transparent', 
-                          padding: 0, 
-                          margin: 0,
-                          lineHeight: '1.6'
+                        customStyle={{
+  background: 'transparent',
+  padding: 0,
+  margin: 0,
+  lineHeight: 'inherit',
+  fontFamily: 'inherit',
+  fontSize: 'inherit',
+  whiteSpace: 'pre',
+  overflowX: 'auto',
+  overflowY: 'hidden',
+}}
+                        codeTagProps={{
+                          style: {
+                            fontFamily: 'inherit',
+                            fontSize: 'inherit',
+                            lineHeight: 'inherit',
+                            padding: 0,
+                            margin: 0,
+                            whiteSpace: 'pre',
+                          }
                         }}
                         showLineNumbers={false}
                       >
